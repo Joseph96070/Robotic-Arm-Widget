@@ -2,6 +2,19 @@
 # //                     IMPORT STATEMENTS                      //
 # ////////////////////////////////////////////////////////////////
 
+
+#import spidev
+import os
+from time import sleep
+import RPi.GPIO as GPIO
+from pidev.stepper import stepper
+from Slush.Devices import L6470Registers
+#from pidev.Cyprus_Commands import Cyprus_Commands_RPi as cyprus
+#spi = spidev.SpiDev()
+#cyprus.initialize()
+
+
+
 import math
 import sys
 import time
@@ -73,7 +86,6 @@ cyprus.open_spi()
 # ////////////////////////////////////////////////////////////////
 
 sm = ScreenManager()
-arm = stepper(port = 0, speed = 10)
 
 # ////////////////////////////////////////////////////////////////
 # //                       MAIN FUNCTIONS                       //
@@ -84,6 +96,9 @@ class MainScreen(Screen):
     version = cyprus.read_firmware_version()
     armPosition = 0
     lastClick = time.clock()
+    X = 1
+    arm = stepper(port=0, micro_steps=32, hold_current=20, run_current=20, accel_current=20, deaccel_current=20,
+                 steps_per_unit=200, speed=1)
 
     def __init__(self, **kwargs):
         super(MainScreen, self).__init__(**kwargs)
@@ -98,28 +113,81 @@ class MainScreen(Screen):
         return processInput
 
     def toggleArm(self):
-        print("Process arm movement here")
+        self.arm.goHome()
+        self.setArmPosition()
+        self.arm.start_relative_move(.33)
 
     def toggleMagnet(self):
-        print("Process magnet here")
-        
+        while True:
+            if (cyprus.read_gpio() & 0b0001):
+                cyprus.set_servo_position(2, 1)
+            elif (cyprus.read_gpio() & 0b0010):
+                cyprus.set_servo_position(2, 1)
+
     def auto(self):
-        print("Run the arm automatically here")
+        self.homeArm()
+        sleep(2)
+        self.isBallOnTallTower()
+        sleep(2)
+        self.isBallOnShortTower()
+        sleep(2)
+
 
     def setArmPosition(self, position):
-        print("Move arm here")
+        self.arm.goHome()
+        sleep(1)
 
     def homeArm(self):
-        arm.home(self.homeDirection)
-        
+        self.arm.go_until_press(1, 6400)
+        sleep(1)
+        self.arm.start_relative_move(1.15)
+        sleep(1)
+        self.arm.setAsHome()
+        sleep(1)
+
     def isBallOnTallTower(self):
-        print("Determine if ball is on the top tower")
+        if (cyprus.read_gpio() & 0b0001):
+            cyprus.set_servo_position(2, .5)
+            sleep(1)
+            cyprus.set_pwm_values(1, period_value=100000, compare_value=100000, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
+            sleep(1)
+            self.arm.start_relative_move(.33)
+            sleep(1)
+            cyprus.set_pwm_values(1, period_value=100000, compare_value=0, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
+            sleep(1)
+            cyprus.set_servo_position(2, 1)
+            sleep(1)
+            cyprus.set_pwm_values(1, period_value=100000, compare_value=100000, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
+            sleep(1)
+            self.arm.start_relative_move(-.33)
+            sleep(1)
+            cyprus.set_pwm_values(1, period_value=100000, compare_value=0, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
+            sleep(1)
 
     def isBallOnShortTower(self):
-        print("Determine if ball is on the bottom tower")
-        
+        if (cyprus.read_gpio() & 0b0010):
+            cyprus.set_servo_position(2, 1)
+            sleep(1)
+            cyprus.set_pwm_values(1, period_value=100000, compare_value=100000, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
+            sleep(1)
+            self.arm.start_relative_move(.33)
+            sleep(1)
+            cyprus.set_pwm_values(1, period_value=100000, compare_value=0, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
+            sleep(1)
+            cyprus.set_servo_position(2, .5)
+            sleep(1)
+            cyprus.set_pwm_values(1, period_value=100000, compare_value=100000, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
+            sleep(1)
+            self.arm.start_relative_move(-.33)
+            sleep(1)
+            cyprus.set_pwm_values(1, period_value=100000, compare_value=0, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
+            sleep(1)
+
     def initialize(self):
-        print("Home arm and turn off magnet")
+        cyprus.initialize()
+        cyprus.setup_servo(2)
+        self.arm.goHome()
+        cyprus.set_servo_position(2, 0.5)
 
     def resetColors(self):
         self.ids.armControl.color = YELLOW
