@@ -96,7 +96,6 @@ class MainScreen(Screen):
     version = cyprus.read_firmware_version()
     armPosition = 0
     lastClick = time.clock()
-    X = 1
     arm = stepper(port=0, micro_steps=32, hold_current=20, run_current=20, accel_current=20, deaccel_current=20,
                  steps_per_unit=200, speed=1)
 
@@ -113,40 +112,48 @@ class MainScreen(Screen):
         return processInput
 
     def toggleArm(self):
-        self.arm.goHome()
-        self.setArmPosition()
-        self.arm.start_relative_move(.33)
+        if self.armControl.text == "Lower Arm":
+            cyprus.set_pwm_values(1, period_value=100000, compare_value=0, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
+            self.armControl.text = "Raise Arm"
+        elif self.armControl.text == "Raise Arm":
+            cyprus.set_pwm_values(1, period_value=100000, compare_value=100000, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
+            self.armControl.text = "Lower Arm"
 
     def toggleMagnet(self):
-        while True:
-            if (cyprus.read_gpio() & 0b0001):
-                cyprus.set_servo_position(2, 1)
-            elif (cyprus.read_gpio() & 0b0010):
-                cyprus.set_servo_position(2, 1)
+        if self.magnetControl.text == "Hold Ball":
+            cyprus.set_servo_position(2, 1)
+            self.magnetControl.text = "Drop Ball"
+        elif self.magnetControl.text == "Drop Ball":
+            cyprus.set_servo_position(2, .5)
+            self.magnetControl.text = "Hold Ball"
 
     def auto(self):
+        cyprus.set_pwm_values(1, period_value=100000, compare_value=100000, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
         self.homeArm()
         sleep(2)
-        self.isBallOnTallTower()
-        sleep(2)
-        self.isBallOnShortTower()
-        sleep(2)
-
+        if (cyprus.read_gpio() & 0b0001) == 0:
+            self.isBallOnTallTower()
+            sleep(2)
+        elif (cyprus.read_gpio() & 0b0010) == 0:
+            self.isBallOnShortTower()
+            sleep(2)
 
     def setArmPosition(self, position):
-        self.arm.goHome()
-        sleep(1)
+        self.arm.start_relative_move(self.moveArm.value)
 
     def homeArm(self):
         self.arm.go_until_press(1, 6400)
-        sleep(1)
-        self.arm.start_relative_move(1.15)
+        sleep(3)
+        cyprus.set_pwm_values(1, period_value=100000, compare_value=100000, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
+        self.arm.start_relative_move(1.2)
         sleep(1)
         self.arm.setAsHome()
         sleep(1)
 
     def isBallOnTallTower(self):
-        if (cyprus.read_gpio() & 0b0001):
+        if (cyprus.read_gpio() & 0b0001) == 0:
+            print("on tall tower")
+            cyprus.set_pwm_values(1, period_value=100000, compare_value=0, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
             cyprus.set_servo_position(2, .5)
             sleep(1)
             cyprus.set_pwm_values(1, period_value=100000, compare_value=100000, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
@@ -165,7 +172,9 @@ class MainScreen(Screen):
             sleep(1)
 
     def isBallOnShortTower(self):
-        if (cyprus.read_gpio() & 0b0010):
+        if (cyprus.read_gpio() & 0b0010) == 0:
+            cyprus.set_pwm_values(1, period_value=100000, compare_value=0, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
+            sleep(1)
             cyprus.set_servo_position(2, 1)
             sleep(1)
             cyprus.set_pwm_values(1, period_value=100000, compare_value=100000, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
@@ -186,8 +195,10 @@ class MainScreen(Screen):
     def initialize(self):
         cyprus.initialize()
         cyprus.setup_servo(2)
+        cyprus.set_pwm_values(1, period_value=100000, compare_value=100000, compare_mode=cyprus.LESS_THAN_OR_EQUAL)
+        cyprus.set_servo_position(2, 1)
         self.arm.goHome()
-        cyprus.set_servo_position(2, 0.5)
+
 
     def resetColors(self):
         self.ids.armControl.color = YELLOW

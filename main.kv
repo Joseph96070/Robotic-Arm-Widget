@@ -1,5 +1,9 @@
 <MainScreen>:
     name: 'main'
+    armControl: armControl
+    magnetControl: magnetControl
+    armControlLabel: armControlLabel
+    moveArm: moveArm
     FloatLayout:
         size_hint: None, None
 
@@ -65,10 +69,10 @@
         Slider:
             id: moveArm
             orientation: 'horizontal'
-            min: 0
-            max: 100 
+            min: -10
+            max: 10
             value: root.armPosition
-            step: 1
+            step: 20
             center_x: root.width * 0.6
             y: root.height * 0.15
             size_hint_x: 7
